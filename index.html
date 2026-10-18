@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ACS Rowing: Opens Centre</title>
+  <meta name="description" content="ACS Rowing: Opens Centre. Schedules, program, results and notices for the Opens squad.">
+  <meta name="theme-color" content="#002d72">
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Opens Centre">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #002d72; }
+    body {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      height: 100dvh;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    #bar {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      background: #002d72;
+      color: #ffffff;
+      padding: 8px 12px;
+      font-size: 14px;
+      line-height: 1.3;
+    }
+    #bar.show { display: flex; }
+    #bar .msg { flex: 1 1 200px; }
+    #bar button {
+      border: 0;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #d4af37;
+      color: #002d72;
+    }
+    #bar button.close { background: transparent; color: #ffffff; font-size: 18px; padding: 4px 8px; }
+    #bar button[hidden] { display: none; }
+    #app { flex: 1; width: 100%; border: 0; background: #f0f2f5; }
+  </style>
+
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+  <script>
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    OneSignalDeferred.push(async function (OneSignal) {
+      try {
+        await OneSignal.init({
+          appId: "61c2c801-4b90-4de1-9f68-628b95eeb0c5",
+          serviceWorkerPath: "OneSignalSDKWorker.js",
+          serviceWorkerParam: { scope: "/" }
+        });
+        OneSignal.Notifications.addEventListener("permissionChange", function () {
+          if (window._acsRefresh) window._acsRefresh();
+        });
+        // If notifications were already allowed, make sure this phone is registered
+        try {
+          if (("Notification" in window) && Notification.permission === "granted") {
+            OneSignal.User.PushSubscription.optIn();
+          }
+        } catch (e2) {}
+      } catch (e) {}
+      if (window._acsRefresh) window._acsRefresh();
+    });
+
+    window.addEventListener("beforeinstallprompt", function (e) {
+      e.preventDefault();
+      window._acsInstall = e;
+      if (window._acsRefresh) window._acsRefresh();
+    });
+  </script>
+</head>
+<body>
+  <div id="bar" role="region" aria-label="App tips">
+    <span class="msg" id="msg"></span>
+    <button type="button" id="btnInstall" hidden>Install app</button>
+    <button type="button" id="btnNotify" hidden>Turn on notifications</button>
+    <button type="button" id="btnClose" class="close" aria-label="Close">&#10005;</button>
+  </div>
+
+  <iframe id="app" title="ACS Rowing: Opens Centre" allow="clipboard-write"></iframe>
+
+  <script>
+    // Opens the app. If a notification was tapped (address ends in ?go=...),
+    // goes straight to the right page inside the app.
+    (function () {
+      var EXEC = "https://script.google.com/macros/s/AKfycbyJRVthNRbJavHW7S7sAcuTYSjBFnXOC84t5DjwxXoT2YoOG4_Q80RH6ygAh8r5NUhCqg/exec";
+      var ALLOWED = ["Home", "WeeklySchedule", "RegattaCalendar", "ImportantDates", "YearCalendar", "ProfileHub", "Documents"];
+
+      var go = "";
+      try { go = new URLSearchParams(window.location.search).get("go") || ""; } catch (e) {}
+      if (ALLOWED.indexOf(go) === -1) go = "";
+
+      document.getElementById("app").src = EXEC + (go ? "?go=" + encodeURIComponent(go) : "");
+
+      try { if (window.location.search) window.history.replaceState(null, "", window.location.pathname); } catch (e) {}
+    })();
+  </script>
+
+  <script>
+    (function () {
+      var bar = document.getElementById("bar");
+      var msg = document.getElementById("msg");
+      var btnNotify = document.getElementById("btnNotify");
+      var btnInstall = document.getElementById("btnInstall");
+      var btnClose = document.getElementById("btnClose");
+
+      var ua = navigator.userAgent || "";
+      var isIOS = /iphone|ipad|ipod/i.test(ua) ||
+                  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      var isStandalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+                         window.navigator.standalone === true;
+      var dismissed = false;
+      try { dismissed = sessionStorage.getItem("acsBarDismissed") === "1"; } catch (e) {}
+
+      function permission() {
+        return ("Notification" in window) ? Notification.permission : "unsupported";
+      }
+
+      function refresh() {
+        var text = "";
+        var showNotify = false;
+        var showInstall = false;
+        var perm = permission();
+
+        if (isIOS && !isStandalone) {
+          text = "To get notifications on iPhone: tap the Share button, choose \"Add to Home Screen\", then open Opens Centre from your home screen.";
+        } else {
+          if (perm === "default") showNotify = true;
+          if (window._acsInstall && !isStandalone) showInstall = true;
+
+          if (perm === "denied") {
+            text = "Notifications are blocked for this app. You can switch them back on in your phone's settings.";
+          } else if (showNotify && showInstall) {
+            text = "Add this app to your home screen and turn on notifications.";
+          } else if (showNotify) {
+            text = "Get a notification when schedules, programs or documents change.";
+          } else if (showInstall) {
+            text = "Add Opens Centre to your home screen.";
+          }
+        }
+
+        msg.textContent = text;
+        btnNotify.hidden = !showNotify;
+        btnInstall.hidden = !showInstall;
+        if (text && !dismissed) { bar.classList.add("show"); } else { bar.classList.remove("show"); }
+      }
+      window._acsRefresh = refresh;
+
+      btnNotify.addEventListener("click", function () {
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        OneSignalDeferred.push(function (OneSignal) {
+          var p = OneSignal.Notifications.requestPermission();
+          if (p && p.then) { p.then(refresh, refresh); } else { refresh(); }
+        });
+      });
+
+      btnInstall.addEventListener("click", function () {
+        var ev = window._acsInstall;
+        if (!ev) return;
+        ev.prompt();
+        ev.userChoice.then(function () { window._acsInstall = null; refresh(); });
+      });
+
+      btnClose.addEventListener("click", function () {
+        dismissed = true;
+        try { sessionStorage.setItem("acsBarDismissed", "1"); } catch (e) {}
+        refresh();
+      });
+
+      window.addEventListener("appinstalled", function () { window._acsInstall = null; refresh(); });
+
+      refresh();
+    })();
+  </script>
+</body>
+</html>
